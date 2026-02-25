@@ -57,6 +57,51 @@ app.get('/api/health', (req, res) =>
   res.json({ success: true, message: 'Blog API is running 🚀' })
 );
 
+// ⚠️ TEMPORARY ADMIN RESET ENDPOINT - REMOVE AFTER USE! ⚠️
+app.get('/api/reset-admin-secret-xyz', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    
+    // Delete existing admin
+    const deleted = await User.deleteOne({ email: 'admin@blog.com' });
+    console.log('🗑️  Deleted old admin:', deleted.deletedCount);
+    
+    // Create fresh admin (password will be auto-hashed by pre-save hook)
+    const newAdmin = await User.create({
+      name: 'Super Admin',
+      email: 'admin@blog.com',
+      password: 'admin123',
+      role: 'admin',
+      isActive: true,
+    });
+    
+    const isHashed = newAdmin.password.startsWith('$2');
+    
+    console.log('✅ New admin created:', newAdmin.email);
+    console.log('🔒 Password hashed:', isHashed);
+    
+    res.json({ 
+      success: true, 
+      message: '✅ Admin reset complete!',
+      details: {
+        email: 'admin@blog.com',
+        password: 'admin123',
+        passwordIsHashed: isHashed,
+        deletedCount: deleted.deletedCount,
+        newUserId: newAdmin._id
+      }
+    });
+  } catch (error) {
+    console.error('❌ Reset error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+// ⚠️ END TEMPORARY ENDPOINT ⚠️
+
 // 404 handler
 app.use((req, res) =>
   res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` })
