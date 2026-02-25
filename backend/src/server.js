@@ -71,3 +71,41 @@ app.listen(PORT, () => {
   console.log(`📋 API Docs: http://localhost:${PORT}/api/health`);
   console.log(`🌐 Allowed CORS origins:`, allowedOrigins);
 });
+
+// Health check
+app.get('/api/health', (req, res) =>
+  res.json({ success: true, message: 'Blog API is running 🚀' })
+);
+
+// ⚠️ TEMPORARY - REMOVE AFTER USE
+app.get('/api/reset-admin-production', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    
+    const deleted = await User.deleteOne({ email: 'admin@blog.com' });
+    
+    const newAdmin = await User.create({
+      name: 'Super Admin',
+      email: 'admin@blog.com',
+      password: 'admin123',
+      role: 'admin',
+      isActive: true,
+    });
+    
+    const isHashed = newAdmin.password.startsWith('$2');
+    
+    res.json({ 
+      success: true, 
+      message: 'Production admin reset!',
+      passwordIsHashed: isHashed,
+      deletedCount: deleted.deletedCount
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 404 handler
+app.use((req, res) =>
+  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` })
+);
