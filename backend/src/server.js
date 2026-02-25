@@ -15,23 +15,22 @@ const app = express();
 
 // ─── CORS Configuration ───────────────────────────────────────────────────────
 const allowedOrigins = [
-  'https://inspire-live.vercel.app',           // Your Vercel deployment
-  'http://localhost:5173',                     // Local Vite dev
-  'http://localhost:3000',                     // Alternative local port
-  process.env.CLIENT_URL,                      // From .env
-  process.env.ADMIN_URL,                       // From .env
-].filter(Boolean); // Remove undefined values
+  'https://inspire-live.vercel.app',
+  'https://inspire-live-225z.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       console.log('❌ Blocked by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true,
@@ -56,51 +55,6 @@ app.use('/api/banner', bannerRoutes);
 app.get('/api/health', (req, res) =>
   res.json({ success: true, message: 'Blog API is running 🚀' })
 );
-
-// ⚠️ TEMPORARY ADMIN RESET ENDPOINT - REMOVE AFTER USE! ⚠️
-app.get('/api/reset-admin-secret-xyz', async (req, res) => {
-  try {
-    const User = require('./models/User');
-    
-    // Delete existing admin
-    const deleted = await User.deleteOne({ email: 'admin@blog.com' });
-    console.log('🗑️  Deleted old admin:', deleted.deletedCount);
-    
-    // Create fresh admin (password will be auto-hashed by pre-save hook)
-    const newAdmin = await User.create({
-      name: 'Super Admin',
-      email: 'admin@blog.com',
-      password: 'admin123',
-      role: 'admin',
-      isActive: true,
-    });
-    
-    const isHashed = newAdmin.password.startsWith('$2');
-    
-    console.log('✅ New admin created:', newAdmin.email);
-    console.log('🔒 Password hashed:', isHashed);
-    
-    res.json({ 
-      success: true, 
-      message: '✅ Admin reset complete!',
-      details: {
-        email: 'admin@blog.com',
-        password: 'admin123',
-        passwordIsHashed: isHashed,
-        deletedCount: deleted.deletedCount,
-        newUserId: newAdmin._id
-      }
-    });
-  } catch (error) {
-    console.error('❌ Reset error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-});
-// ⚠️ END TEMPORARY ENDPOINT ⚠️
 
 // 404 handler
 app.use((req, res) =>
