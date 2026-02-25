@@ -25,7 +25,6 @@ app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
-
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -39,14 +38,14 @@ app.use(
   })
 );
 
-// ─── Middleware ─────────────────────────────────────────────
+// ─── Body Parsing Middleware (MUST be before routes) ────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Serve uploaded images statically
+// ─── Static Files ────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
-// ─── ROOT ROUTE (FIXES YOUR 404 ON MAIN URL) ─────────────────
+// ─── Root Route ──────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({
     success: true,
@@ -54,20 +53,19 @@ app.get('/', (req, res) => {
   });
 });
 
-// ─── API Routes ─────────────────────────────────────────────
+// ─── API Routes ──────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/blogs', blogRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/banner', bannerRoutes);
 
-// ─── Health check ───────────────────────────────────────────
+// ─── Health Check ────────────────────────────────────────────
 app.get('/api/health', (req, res) =>
   res.json({ success: true, message: 'Blog API is running 🚀' })
 );
 
 /*
-⚠️ ⚠️ ⚠️ VERY DANGEROUS IN PRODUCTION ⚠️ ⚠️ ⚠️
-Remove after first admin setup or protect with admin auth
+⚠️ DANGER: Remove this route after first admin setup in production
 */
 app.get('/api/reset-admin-production', async (req, res) => {
   try {
@@ -96,20 +94,21 @@ app.get('/api/reset-admin-production', async (req, res) => {
   }
 });
 
-// ─── 404 handler (ONLY ONE) ─────────────────────────────────
+// ─── 404 Handler ─────────────────────────────────────────────
 app.use((req, res) =>
-  res
-    .status(404)
-    .json({ success: false, message: `Route ${req.originalUrl} not found` })
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.originalUrl} not found`,
+  })
 );
 
-// ─── Error handler (MUST BE LAST) ───────────────────────────
+// ─── Global Error Handler (MUST be last) ─────────────────────
 app.use(errorHandler);
 
-// ─── Start ──────────────────────────────────────────────────
+// ─── Start Server ─────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📋 API Docs: http://localhost:${PORT}/api/health`);
+  console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🌐 Allowed CORS origins:`, allowedOrigins);
 });

@@ -28,7 +28,6 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    // Check if user already exists
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({
@@ -55,17 +54,19 @@ exports.register = async (req, res, next) => {
 // @access  Public
 exports.login = async (req, res, next) => {
   try {
+    // ✅ Debug logs placed correctly inside function
+    console.log('LOGIN BODY:', req.body);
+    console.log('CONTENT TYPE:', req.headers['content-type']);
+
     const { email, password } = req.body;
 
-    // Validate input
-    if (!email || !password) {
+    if (!email?.trim() || !password?.trim()) {
       return res.status(400).json({
         success: false,
         message: 'Please provide email and password',
       });
     }
 
-    // Find user — explicitly select password field
     const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
 
     if (!user) {
@@ -75,7 +76,6 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({
@@ -84,7 +84,6 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // Check active
     if (!user.isActive) {
       return res.status(401).json({
         success: false,
