@@ -6,14 +6,14 @@ const connectDB = require('./config/database');
 const { errorHandler } = require('./middleware/error');
 const authRoutes = require('./routes/authRoutes');
 const { blogRouter, adminRouter } = require('./routes/blogRoutes');
-const bannerRoutes  = require('./routes/bannerRoutes'); 
+const bannerRoutes = require('./routes/bannerRoutes');
 
 // Connect to MongoDB
 connectDB();
 
 const app = express();
 
-// ─── CORS Configuration ───────────────────────────────────────────────────────
+// ─── CORS Configuration ─────────────────────────────────────
 const allowedOrigins = [
   'https://inspire-live.vercel.app',
   'https://inspire-live-225z.vercel.app',
@@ -21,69 +21,60 @@ const allowedOrigins = [
   'http://localhost:3000',
 ].filter(Boolean);
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('❌ Blocked by CORS:', origin);
-      callback(null, false);
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
 
-// ─── Middleware ───────────────────────────────────────────────────────────────
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log('❌ Blocked by CORS:', origin);
+        callback(null, false);
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+
+// ─── Middleware ─────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve uploaded images statically
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
-app.use('/api/auth',  authRoutes);
-app.use('/api/blogs', blogRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/banner', bannerRoutes); 
-
-// Health check
-app.get('/api/health', (req, res) =>
-  res.json({ success: true, message: 'Blog API is running 🚀' })
-);
-
-// 404 handler
-app.use((req, res) =>
-  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` })
-);
-
-// Error handler (must be last)
-app.use(errorHandler);
-
-// ─── Start ────────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📋 API Docs: http://localhost:${PORT}/api/health`);
-  console.log(`🌐 Allowed CORS origins:`, allowedOrigins);
+// ─── ROOT ROUTE (FIXES YOUR 404 ON MAIN URL) ─────────────────
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: '🚀 Inspire Live Backend Running',
+  });
 });
 
-// Health check
+// ─── API Routes ─────────────────────────────────────────────
+app.use('/api/auth', authRoutes);
+app.use('/api/blogs', blogRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/banner', bannerRoutes);
+
+// ─── Health check ───────────────────────────────────────────
 app.get('/api/health', (req, res) =>
   res.json({ success: true, message: 'Blog API is running 🚀' })
 );
 
-// ⚠️ TEMPORARY - REMOVE AFTER USE
+/*
+⚠️ ⚠️ ⚠️ VERY DANGEROUS IN PRODUCTION ⚠️ ⚠️ ⚠️
+Remove after first admin setup or protect with admin auth
+*/
 app.get('/api/reset-admin-production', async (req, res) => {
   try {
     const User = require('./models/User');
-    
+
     const deleted = await User.deleteOne({ email: 'admin@blog.com' });
-    
+
     const newAdmin = await User.create({
       name: 'Super Admin',
       email: 'admin@blog.com',
@@ -91,21 +82,34 @@ app.get('/api/reset-admin-production', async (req, res) => {
       role: 'admin',
       isActive: true,
     });
-    
+
     const isHashed = newAdmin.password.startsWith('$2');
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Production admin reset!',
       passwordIsHashed: isHashed,
-      deletedCount: deleted.deletedCount
+      deletedCount: deleted.deletedCount,
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 404 handler
+// ─── 404 handler (ONLY ONE) ─────────────────────────────────
 app.use((req, res) =>
-  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` })
+  res
+    .status(404)
+    .json({ success: false, message: `Route ${req.originalUrl} not found` })
 );
+
+// ─── Error handler (MUST BE LAST) ───────────────────────────
+app.use(errorHandler);
+
+// ─── Start ──────────────────────────────────────────────────
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📋 API Docs: http://localhost:${PORT}/api/health`);
+  console.log(`🌐 Allowed CORS origins:`, allowedOrigins);
+});
