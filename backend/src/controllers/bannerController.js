@@ -1,6 +1,5 @@
 const Banner = require('../models/Banner');
-const path = require('path');
-const fs = require('fs');
+const { deleteFromCloudinary, getPublicIdFromUrl, isCloudinaryUrl } = require('../middleware/upload');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -49,13 +48,16 @@ exports.addSlide = async (req, res) => {
     const banner = await getOrCreateBanner();
     const { title, subtitle, description, type, mediaUrl, thumbUrl, buttonText, buttonUrl, isActive } = req.body;
 
-    // Handle file upload if present
+    // Handle Cloudinary upload
     let resolvedMediaUrl = mediaUrl;
     let resolvedThumbUrl = thumbUrl || '';
 
     if (req.file) {
-      resolvedMediaUrl = `/uploads/${req.file.filename}`;
-      if (type === 'video') resolvedThumbUrl = resolvedMediaUrl;
+      // Cloudinary stores the secure_url in req.file.path
+      resolvedMediaUrl = req.file.path;
+      if (type === 'video') {
+        resolvedThumbUrl = resolvedMediaUrl;
+      }
     }
 
     const newSlide = {
@@ -87,15 +89,29 @@ exports.updateSlide = async (req, res) => {
     const slide = banner.slides.id(req.params.slideId);
     if (!slide) return res.status(404).json({ success: false, message: 'Slide not found' });
 
+    // Store old media URL for cleanup if file is being replaced
+    const oldMediaUrl = slide.mediaUrl;
+
     const fields = ['title', 'subtitle', 'description', 'type', 'mediaUrl', 'thumbUrl', 'buttonText', 'buttonUrl', 'order', 'isActive'];
     fields.forEach((f) => {
       if (req.body[f] !== undefined) slide[f] = req.body[f];
     });
 
-    // Handle file upload
+    // Handle new file upload
     if (req.file) {
-      slide.mediaUrl = `/uploads/${req.file.filename}`;
+      slide.mediaUrl = req.file.path; // Cloudinary secure_url
       if (slide.type === 'video') slide.thumbUrl = slide.mediaUrl;
+
+      // Delete old file from Cloudinary if it exists
+      if (oldMediaUrl && isCloudinaryUrl(oldMediaUrl)) {
+        const publicId = getPublicIdFromUrl(oldMediaUrl);
+        if (publicId) {
+          const resourceType = slide.type === 'video' ? 'video' : 'image';
+          await deleteFromCloudinary(publicId, resourceType).catch(err => 
+            console.error('Failed to delete old file from Cloudinary:', err)
+          );
+        }
+      }
     }
 
     await banner.save();
@@ -112,10 +128,15 @@ exports.deleteSlide = async (req, res) => {
     const slide = banner.slides.id(req.params.slideId);
     if (!slide) return res.status(404).json({ success: false, message: 'Slide not found' });
 
-    // Remove local file if it's an upload
-    if (slide.mediaUrl && slide.mediaUrl.startsWith('/uploads/')) {
-      const filePath = path.join(__dirname, '../../public', slide.mediaUrl);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    // Delete from Cloudinary if it's a Cloudinary URL
+    if (slide.mediaUrl && isCloudinaryUrl(slide.mediaUrl)) {
+      const publicId = getPublicIdFromUrl(slide.mediaUrl);
+      if (publicId) {
+        const resourceType = slide.type === 'video' ? 'video' : 'image';
+        await deleteFromCloudinary(publicId, resourceType).catch(err =>
+          console.error('Failed to delete file from Cloudinary:', err)
+        );
+      }
     }
 
     slide.deleteOne();

@@ -1,4 +1,5 @@
 const Blog = require('../models/Blog');
+const { deleteFromCloudinary, getPublicIdFromUrl, isCloudinaryUrl } = require('../middleware/upload');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -144,14 +145,14 @@ exports.addComment = async (req, res, next) => {
 // @access  Admin/Editor
 exports.createBlog = async (req, res, next) => {
   try {
-    // If images were uploaded via multer, attach paths
+    // Handle Cloudinary uploads - multer-storage-cloudinary stores URL in req.file.path
     if (req.files) {
       Object.keys(req.files).forEach((field) => {
-        req.body[field] = `/uploads/${req.files[field][0].filename}`;
+        req.body[field] = req.files[field][0].path; // Cloudinary secure_url
       });
     }
     if (req.file) {
-      req.body.img = `/uploads/${req.file.filename}`;
+      req.body.img = req.file.path; // Cloudinary secure_url
     }
 
     const blog = await Blog.create(req.body);
@@ -165,21 +166,53 @@ exports.createBlog = async (req, res, next) => {
 // @access  Admin/Editor
 exports.updateBlog = async (req, res, next) => {
   try {
+    // Get existing blog to track old images
+    const existingBlog = await Blog.findById(req.params.id);
+    if (!existingBlog) {
+      return res.status(404).json({ success: false, message: 'Blog not found' });
+    }
+
+    // Track old image URLs for cleanup
+    const oldImages = {};
+    const imageFields = ['img', 'detailsImg', 'img1', 'img2', 'img3', 'img4', 'img5', 'img6', 'smallImg', 'videoImg'];
+
+    // Handle new file uploads
     if (req.files) {
       Object.keys(req.files).forEach((field) => {
-        req.body[field] = `/uploads/${req.files[field][0].filename}`;
+        // Store old URL if it exists
+        if (existingBlog[field] && isCloudinaryUrl(existingBlog[field])) {
+          oldImages[field] = existingBlog[field];
+        }
+        // Set new Cloudinary URL
+        req.body[field] = req.files[field][0].path;
       });
     }
     if (req.file) {
-      req.body.img = `/uploads/${req.file.filename}`;
+      if (existingBlog.img && isCloudinaryUrl(existingBlog.img)) {
+        oldImages.img = existingBlog.img;
+      }
+      req.body.img = req.file.path;
     }
 
+    // Update blog
     const blog = await Blog.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     });
 
-    if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
+    // Delete old images from Cloudinary (async, don't block response)
+    if (Object.keys(oldImages).length > 0) {
+      Promise.all(
+        Object.values(oldImages).map(url => {
+          const publicId = getPublicIdFromUrl(url);
+          if (publicId) {
+            return deleteFromCloudinary(publicId, 'image').catch(err =>
+              console.error('Failed to delete old image from Cloudinary:', err)
+            );
+          }
+        })
+      ).catch(err => console.error('Error cleaning up old images:', err));
+    }
 
     res.json({ success: true, data: blog });
   } catch (error) {
@@ -191,8 +224,45 @@ exports.updateBlog = async (req, res, next) => {
 // @access  Admin
 exports.deleteBlog = async (req, res, next) => {
   try {
-    const blog = await Blog.findByIdAndDelete(req.params.id);
+    const blog = await Blog.findById(req.params.id);
     if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
+
+    // Collect all image URLs from the blog
+    const imageFields = ['img', 'detailsImg', 'img1', 'img2', 'img3', 'img4', 'img5', 'img6', 'smallImg', 'videoImg'];
+    const imagesToDelete = [];
+
+    imageFields.forEach(field => {
+      if (blog[field] && isCloudinaryUrl(blog[field])) {
+        imagesToDelete.push(blog[field]);
+      }
+    });
+
+    // Add slider images
+    if (blog.slider && Array.isArray(blog.slider)) {
+      blog.slider.forEach(url => {
+        if (isCloudinaryUrl(url)) {
+          imagesToDelete.push(url);
+        }
+      });
+    }
+
+    // Delete blog from database
+    await Blog.findByIdAndDelete(req.params.id);
+
+    // Delete all images from Cloudinary (async, don't block response)
+    if (imagesToDelete.length > 0) {
+      Promise.all(
+        imagesToDelete.map(url => {
+          const publicId = getPublicIdFromUrl(url);
+          if (publicId) {
+            return deleteFromCloudinary(publicId, 'image').catch(err =>
+              console.error('Failed to delete image from Cloudinary:', err)
+            );
+          }
+        })
+      ).catch(err => console.error('Error cleaning up blog images:', err));
+    }
+
     res.json({ success: true, message: 'Blog deleted successfully' });
   } catch (error) {
     next(error);

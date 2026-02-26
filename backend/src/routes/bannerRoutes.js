@@ -1,35 +1,43 @@
 const express = require('express');
 const router = express.Router();
-const bannerCtrl = require('../controllers/bannerController');
-const upload = require('../middleware/uploadMiddleware');
+const bannerController = require('../controllers/bannerController');
+const { uploadMedia } = require('../middleware/upload');
+const { protect, authorize } = require('../middleware/auth'); // Your auth middleware
 
-// ── Use the SAME auth middleware your blogRoutes/adminRouter uses ────────────
-// Look at your blogRoutes.js and copy exactly the same import
-const { protect } = require('../middleware/auth');
+// ─── Public Routes ───────────────────────────────────────────────────────────
 
-// ── Public ─────────────────────────────────────────────────────────────────
-// GET /api/banner  (no auth — used by your Next.js frontend)
-router.get('/', bannerCtrl.getPublicBanner);
+// GET /api/banner - Get active banner for frontend
+router.get('/', bannerController.getPublicBanner);
 
-// ── Admin (protected) ──────────────────────────────────────────────────────
-// IMPORTANT: specific routes MUST come before param routes (:slideId)
+// ─── Admin Routes ────────────────────────────────────────────────────────────
 
-// GET /api/banner/admin
-router.get('/admin', protect, bannerCtrl.getBanner);
+// Protect all admin routes (add your auth middleware)
+router.use('/admin', protect, authorize('admin', 'editor'));
 
-// PUT /api/banner/admin/toggle
-router.put('/admin/toggle', protect, bannerCtrl.toggleBanner);
+// GET /api/admin/banner - Get banner with all slides
+router.get('/admin', bannerController.getBanner);
 
-// PUT /api/banner/admin/slides/reorder  ← BEFORE /:slideId
-router.put('/admin/slides/reorder', protect, bannerCtrl.reorderSlides);
+// POST /api/admin/banner/slides - Add new slide (with optional media upload)
+router.post(
+  '/admin/slides',
+  uploadMedia.single('media'), // Field name: 'media'
+  bannerController.addSlide
+);
 
-// POST /api/banner/admin/slides
-router.post('/admin/slides', protect, upload.single('media'), bannerCtrl.addSlide);
+// PUT /api/admin/banner/slides/:slideId - Update slide
+router.put(
+  '/admin/slides/:slideId',
+  uploadMedia.single('media'),
+  bannerController.updateSlide
+);
 
-// PUT /api/banner/admin/slides/:slideId
-router.put('/admin/slides/:slideId', protect, upload.single('media'), bannerCtrl.updateSlide);
+// DELETE /api/admin/banner/slides/:slideId - Delete slide
+router.delete('/admin/slides/:slideId', bannerController.deleteSlide);
 
-// DELETE /api/banner/admin/slides/:slideId
-router.delete('/admin/slides/:slideId', protect, bannerCtrl.deleteSlide);
+// PUT /api/admin/banner/slides/reorder - Reorder slides
+router.put('/admin/slides/reorder', bannerController.reorderSlides);
+
+// PUT /api/admin/banner/toggle - Toggle banner active state
+router.put('/admin/toggle', bannerController.toggleBanner);
 
 module.exports = router;
