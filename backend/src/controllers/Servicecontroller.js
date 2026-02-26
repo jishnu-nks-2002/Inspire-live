@@ -22,9 +22,10 @@ exports.getAllServicesAdmin = async (req, res) => {
 };
 
 // ─── GET single service by slug (public) ─────────────────────────────────────
+// ✅ FIX: removed isActive filter so detail page works for all active/preview
 exports.getServiceBySlug = async (req, res) => {
   try {
-    const service = await Service.findOne({ slug: req.params.slug, isActive: true });
+    const service = await Service.findOne({ slug: req.params.slug });
     if (!service) {
       return res.status(404).json({ success: false, message: 'Service not found' });
     }
@@ -43,6 +44,10 @@ exports.getServiceById = async (req, res) => {
     }
     res.json({ success: true, data: service });
   } catch (err) {
+    // ✅ Handle invalid MongoDB ObjectId gracefully
+    if (err.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'Invalid service ID' });
+    }
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -63,23 +68,19 @@ exports.createService = async (req, res) => {
       try { body.faqs = JSON.parse(body.faqs); } catch { body.faqs = []; }
     }
 
-    // Cloudinary returns the secure_url directly on req.files[field][0].path
+    // ✅ Properly parse boolean — FormData sends strings
+    body.isActive = body.isActive === 'true' || body.isActive === true;
+
+    // Cloudinary returns the secure_url on req.files[field][0].path
     if (req.files) {
-      if (req.files.heroImage && req.files.heroImage[0]) {
-        body.heroImage = req.files.heroImage[0].path;
-      }
-      if (req.files.detailImage1 && req.files.detailImage1[0]) {
-        body.detailImage1 = req.files.detailImage1[0].path;
-      }
-      if (req.files.detailImage2 && req.files.detailImage2[0]) {
-        body.detailImage2 = req.files.detailImage2[0].path;
-      }
+      if (req.files.heroImage?.[0])    body.heroImage    = req.files.heroImage[0].path;
+      if (req.files.detailImage1?.[0]) body.detailImage1 = req.files.detailImage1[0].path;
+      if (req.files.detailImage2?.[0]) body.detailImage2 = req.files.detailImage2[0].path;
     }
 
     const service = new Service(body);
     await service.save();
 
-    // Auto-update prev/next nav links across all active services
     await updateServiceLinks();
 
     res.status(201).json({ success: true, data: service });
@@ -108,17 +109,20 @@ exports.updateService = async (req, res) => {
       try { body.faqs = JSON.parse(body.faqs); } catch { body.faqs = []; }
     }
 
+    // ✅ Properly parse boolean — FormData sends strings
+    body.isActive = body.isActive === 'true' || body.isActive === true;
+
     // If new images uploaded, delete old ones from Cloudinary first
     if (req.files) {
-      if (req.files.heroImage && req.files.heroImage[0]) {
+      if (req.files.heroImage?.[0]) {
         await deleteOldImage(existing.heroImage);
         body.heroImage = req.files.heroImage[0].path;
       }
-      if (req.files.detailImage1 && req.files.detailImage1[0]) {
+      if (req.files.detailImage1?.[0]) {
         await deleteOldImage(existing.detailImage1);
         body.detailImage1 = req.files.detailImage1[0].path;
       }
-      if (req.files.detailImage2 && req.files.detailImage2[0]) {
+      if (req.files.detailImage2?.[0]) {
         await deleteOldImage(existing.detailImage2);
         body.detailImage2 = req.files.detailImage2[0].path;
       }
@@ -134,6 +138,9 @@ exports.updateService = async (req, res) => {
 
     res.json({ success: true, data: service });
   } catch (err) {
+    if (err.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'Invalid service ID' });
+    }
     res.status(400).json({ success: false, message: err.message });
   }
 };
@@ -157,6 +164,9 @@ exports.deleteService = async (req, res) => {
 
     res.json({ success: true, message: 'Service deleted successfully' });
   } catch (err) {
+    if (err.name === 'CastError') {
+      return res.status(400).json({ success: false, message: 'Invalid service ID' });
+    }
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -177,9 +187,6 @@ exports.reorderServices = async (req, res) => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Delete an image from Cloudinary if it's a Cloudinary URL
- */
 async function deleteOldImage(imageUrl) {
   if (!imageUrl || !isCloudinaryUrl(imageUrl)) return;
   try {
@@ -188,15 +195,10 @@ async function deleteOldImage(imageUrl) {
       await deleteFromCloudinary(publicId, 'image');
     }
   } catch (err) {
-    // Log but don't throw — deletion failure shouldn't block the main operation
     console.error('Failed to delete old image from Cloudinary:', err.message);
   }
 }
 
-/**
- * Auto-update prevService / nextService slugs for all active services
- * based on their current sort order
- */
 async function updateServiceLinks() {
   const services = await Service.find({ isActive: true }).sort({ order: 1 });
   for (let i = 0; i < services.length; i++) {

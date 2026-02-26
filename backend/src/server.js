@@ -58,14 +58,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/blogs', blogRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/banner', bannerRoutes);
+app.use('/api/services', require('./routes/Serviceroutes')); // ✅ MOVED: before 404 handler
 
 // ─── Health Check ────────────────────────────────────────────
 app.get('/api/health', (req, res) =>
   res.json({ success: true, message: 'Blog API is running 🚀' })
 );
 
-
-app.use('/api/services', require('./routes/Serviceroutes'));
 /*
 ⚠️ DANGER: Remove this route after first admin setup in production
 */
