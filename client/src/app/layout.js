@@ -32,8 +32,13 @@ const headingFont = Mona_Sans({
 });
 
 export const metadata = {
-	title: "Bexon - Corporate Business React NextJs Template",
-	description: "Bexon - Corporate Business React NextJs Template",
+	title: "inspirePhD - Research and Publication Support Services",
+	description: "inspirePhD - Research and Publication Support Services",
+	icons: {
+    icon: "/new-imges/logo/logo_inspire-01.png",        // standard favicon
+    shortcut: "/favicon.ico",    // shortcut icon
+    apple: "/apple-touch-icon.png", // optional for iPhone
+  },
 };
 
 export default function RootLayout({ children }) {
