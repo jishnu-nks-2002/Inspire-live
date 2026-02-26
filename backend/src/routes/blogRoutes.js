@@ -1,41 +1,46 @@
 const express = require('express');
-const router = express.Router();
+const blogRouter = express.Router();
+const adminRouter = express.Router();
 const blogController = require('../controllers/blogController');
-const { uploadImage } = require('../middleware/upload');
-const { protect, authorize } = require('../middleware/auth'); // Your auth middleware
+const { uploadImage } = require('../middleware/uploadMiddleware');
+const { protect, authorize } = require('../middleware/auth');
 
-// ─── Public Routes ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// PUBLIC BLOG ROUTES (blogRouter) - /api/blogs
+// ═══════════════════════════════════════════════════════════════════════════
 
 // GET /api/blogs - Get all published blogs (with pagination, filters)
-router.get('/', blogController.getBlogs);
+blogRouter.get('/', blogController.getBlogs);
 
 // GET /api/blogs/categories - Get all categories
-router.get('/categories', blogController.getCategories);
+blogRouter.get('/categories', blogController.getCategories);
 
 // GET /api/blogs/tags - Get all tags
-router.get('/tags', blogController.getTags);
+blogRouter.get('/tags', blogController.getTags);
 
 // GET /api/blogs/:id - Get single blog by ID or slug
-router.get('/:id', blogController.getBlog);
+blogRouter.get('/:id', blogController.getBlog);
 
 // POST /api/blogs/:id/comments - Add comment to blog
-router.post('/:id/comments', blogController.addComment);
+blogRouter.post('/:id/comments', blogController.addComment);
 
-// ─── Admin Routes ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ADMIN BLOG ROUTES (adminRouter) - /api/admin
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Protect admin routes
-router.use('/admin', protect, authorize('admin', 'editor'));
+// Protect all admin routes
+adminRouter.use(protect);
+adminRouter.use(authorize('admin', 'editor'));
 
 // GET /api/admin/blogs - Get all blogs (including drafts)
-router.get('/admin', blogController.adminGetBlogs);
+adminRouter.get('/blogs', blogController.adminGetBlogs);
 
 // GET /api/admin/stats - Get blog statistics
-router.get('/admin/stats', blogController.getStats);
+adminRouter.get('/stats', blogController.getStats);
 
-// POST /api/admin/blogs - Create new blog
-// Supports multiple image fields
-router.post(
-  '/admin',
+// POST /api/admin/blogs - Create new blog with multiple image uploads
+adminRouter.post(
+  '/blogs',
   uploadImage.fields([
     { name: 'img', maxCount: 1 },
     { name: 'detailsImg', maxCount: 1 },
@@ -52,8 +57,8 @@ router.post(
 );
 
 // PUT /api/admin/blogs/:id - Update blog
-router.put(
-  '/admin/:id',
+adminRouter.put(
+  '/blogs/:id',
   uploadImage.fields([
     { name: 'img', maxCount: 1 },
     { name: 'detailsImg', maxCount: 1 },
@@ -70,15 +75,18 @@ router.put(
 );
 
 // DELETE /api/admin/blogs/:id - Delete blog
-router.delete('/admin/:id', blogController.deleteBlog);
+adminRouter.delete('/blogs/:id', blogController.deleteBlog);
 
 // PATCH /api/admin/blogs/:id/comments/:commentId/approve - Approve comment
-router.patch('/admin/:id/comments/:commentId/approve', blogController.approveComment);
+adminRouter.patch('/blogs/:id/comments/:commentId/approve', blogController.approveComment);
 
 // DELETE /api/admin/blogs/:id/comments/:commentId - Delete comment
-router.delete('/admin/:id/comments/:commentId', blogController.deleteComment);
+adminRouter.delete('/blogs/:id/comments/:commentId', blogController.deleteComment);
 
 // POST /api/admin/blogs/:id/comments/:commentId/reply - Reply to comment
-router.post('/admin/:id/comments/:commentId/reply', blogController.replyToComment);
+adminRouter.post('/blogs/:id/comments/:commentId/reply', blogController.replyToComment);
 
-module.exports = router;
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORTS - Must match server.js import: { blogRouter, adminRouter }
+// ═══════════════════════════════════════════════════════════════════════════
+module.exports = { blogRouter, adminRouter };

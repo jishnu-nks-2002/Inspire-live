@@ -1,43 +1,50 @@
 const express = require('express');
 const router = express.Router();
 const bannerController = require('../controllers/bannerController');
-const { uploadMedia } = require('../middleware/upload');
-const { protect, authorize } = require('../middleware/auth'); // Your auth middleware
+const { uploadMedia } = require('../middleware/uploadMiddleware');
+const { protect, authorize } = require('../middleware/auth');
 
-// ─── Public Routes ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// PUBLIC BANNER ROUTES - /api/banner
+// ═══════════════════════════════════════════════════════════════════════════
 
 // GET /api/banner - Get active banner for frontend
 router.get('/', bannerController.getPublicBanner);
 
-// ─── Admin Routes ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ADMIN BANNER ROUTES - /api/banner/admin
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Protect all admin routes (add your auth middleware)
+// Protect all admin routes
 router.use('/admin', protect, authorize('admin', 'editor'));
 
-// GET /api/admin/banner - Get banner with all slides
+// GET /api/banner/admin - Get banner with all slides
 router.get('/admin', bannerController.getBanner);
 
-// POST /api/admin/banner/slides - Add new slide (with optional media upload)
+// POST /api/banner/admin/slides - Add new slide (with optional media upload)
 router.post(
   '/admin/slides',
   uploadMedia.single('media'), // Field name: 'media'
   bannerController.addSlide
 );
 
-// PUT /api/admin/banner/slides/:slideId - Update slide
+// PUT /api/banner/admin/slides/:slideId - Update slide
 router.put(
   '/admin/slides/:slideId',
   uploadMedia.single('media'),
   bannerController.updateSlide
 );
 
-// DELETE /api/admin/banner/slides/:slideId - Delete slide
+// DELETE /api/banner/admin/slides/:slideId - Delete slide
 router.delete('/admin/slides/:slideId', bannerController.deleteSlide);
 
-// PUT /api/admin/banner/slides/reorder - Reorder slides
+// PUT /api/banner/admin/slides/reorder - Reorder slides
 router.put('/admin/slides/reorder', bannerController.reorderSlides);
 
-// PUT /api/admin/banner/toggle - Toggle banner active state
+// PUT /api/banner/admin/toggle - Toggle banner active state
 router.put('/admin/toggle', bannerController.toggleBanner);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORTS - Must match server.js import
+// ═══════════════════════════════════════════════════════════════════════════
 module.exports = router;
