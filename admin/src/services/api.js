@@ -49,5 +49,21 @@ export const commentService = {
   reply: (blogId, commentId, data) =>
     api.post(`/admin/blogs/${blogId}/comments/${commentId}/reply`, data),
 };
+// api.js — add this alongside blogService, commentService, etc.
+
+// ── Services ───────────────────────────────────────────────────────────────────
+export const serviceService = {
+  // Public
+  getAll:       (params) => api.get('/services', { params }),
+  getBySlug:    (slug)   => api.get(`/services/slug/${slug}`),
+
+  // Admin (protected)
+  getAllAdmin:   (params) => api.get('/services/admin/all', { params }),
+  getById:      (id)     => api.get(`/services/${id}`),
+  create:       (data)   => api.post('/services', data),         // FormData for images
+  update:       (id, data) => api.put(`/services/${id}`, data),  // FormData for images
+  reorder:      (data)   => api.put('/services/reorder', data),
+  delete:       (id)     => api.delete(`/services/${id}`),
+};
 
 export default api;

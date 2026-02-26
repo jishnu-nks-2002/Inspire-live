@@ -3,13 +3,10 @@ import axios from 'axios';
 
 const AuthContext = createContext(null);
 
-// Create axios instance
-// AFTER (correct):
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
 });
 
-// Attach token to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('adminToken');
   if (token) {
@@ -22,26 +19,19 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On mount, verify existing token
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
     if (!token) {
       setLoading(false);
       return;
     }
-
     api.get('/auth/me')
-      .then(res => {
-        setUser(res.data.data);
-      })
+      .then(res => setUser(res.data.data))
       .catch(() => {
-        // Token invalid/expired — clear it
         localStorage.removeItem('adminToken');
         setUser(null);
       })
-      .finally(() => {
-        setLoading(false);
-      });
+      .finally(() => setLoading(false));
   }, []);
 
   const login = async (email, password) => {
@@ -57,8 +47,11 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // ✅ expose token so ServiceManager / ServiceForm can access it
+  const token = localStorage.getItem('adminToken');
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, api }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, api }}>
       {children}
     </AuthContext.Provider>
   );
@@ -66,8 +59,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };

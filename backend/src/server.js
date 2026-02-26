@@ -64,6 +64,8 @@ app.get('/api/health', (req, res) =>
   res.json({ success: true, message: 'Blog API is running 🚀' })
 );
 
+
+app.use('/api/services', require('./routes/Serviceroutes'));
 /*
 ⚠️ DANGER: Remove this route after first admin setup in production
 */

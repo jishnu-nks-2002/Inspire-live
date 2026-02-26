@@ -9,6 +9,8 @@ import BlogForm from './pages/BlogForm';
 import Comments from './pages/Comments';
 import Settings from './pages/Settings';
 import BannerManager from './pages/BannerManager';
+import ServiceManager from './pages/Servicemanager';
+import ServiceForm from './pages/Serviceform';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -41,6 +43,11 @@ export default function App() {
             <Route path="settings" element={<Settings />} />
              {/* ← NEW banner route */}
           <Route path="banner" element={<BannerManager />} />
+
+          {/* ↓ NEW SERVICE ROUTES */}
+        <Route path="services"           element={<ServiceManager />} />
+        <Route path="services/new"       element={<ServiceForm />} />
+        <Route path="services/edit/:id"  element={<ServiceForm />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -10,7 +10,9 @@ const NAV = [
   { to: '/blogs',     icon: FileText,        label: 'Blogs' },
   { to: '/comments',  icon: MessageSquare,   label: 'Comments' },
   { to: '/banner',    icon: Layers,          label: 'Banner' },
+  { to: '/services',  icon: Layers,          label: 'Services' },
   { to: '/settings',  icon: Settings,        label: 'Settings' },
+
 ];
 
 export default function Layout() {
