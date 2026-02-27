@@ -50,6 +50,7 @@ const eventSchema = new mongoose.Schema(
       default: true,
     },
     order: {
+        
       type: Number,
       default: 0,
     },
